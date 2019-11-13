@@ -53,11 +53,12 @@ class fconv_ms(nn.Module):
         self.unpool3_d = nn.Upsample(scale_factor=2, mode='bilinear')
 
         # decoder for RGB
-        self.deconv5 = create_deconv_3_in(filters_rgb[4], filters_rgb[3],track=self.track)
-        self.deconv4 = create_deconv_3_in(filters_rgb[3]+filters_rgb[3], filters_rgb[2],track=self.track)
-        self.deconv3 = create_deconv_3_in(filters_rgb[2]+filters_rgb[2], filters_rgb[1],track=self.track)
-        self.deconv2 = create_deconv_2_in(filters_rgb[1]+filters_rgb[1], filters_rgb[0],track=self.track)
-        self.deconv1 = create_addon(filters_rgb[0]+filters_rgb[0], filters_rgb[0], self.output_channel)
+        # filters_rgb = [64, 128, 256, 256, 256]
+        self.deconv5 = create_deconv_3_in(filters_rgb[4], filters_rgb[3],track=self.track) # 256 -256
+        self.deconv4 = create_deconv_3_in(filters_rgb[3]+filters_rgb[3], filters_rgb[2],track=self.track) # 256+256 - 256
+        self.deconv3 = create_deconv_3_in(filters_rgb[2]+filters_rgb[2], filters_rgb[1],track=self.track) # 256+256 - 128
+        self.deconv2 = create_deconv_2_in(filters_rgb[1]+filters_rgb[1], filters_rgb[0],track=self.track) # 128+128 - 64
+        self.deconv1 = create_addon(filters_rgb[0]+filters_rgb[0], filters_rgb[0], self.output_channel) # 64+64 - 64 - 3
 
         self.unpool1 = nn.MaxUnpool2d(kernel_size=2, stride=2)
         self.unpool2 = nn.MaxUnpool2d(kernel_size=2, stride=2)

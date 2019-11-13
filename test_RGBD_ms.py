@@ -25,8 +25,14 @@ from models import get_model, get_lossfun
 from loader import get_data_path, get_loader
 from pre_trained import get_premodel
 from utils import norm_imsave, change_channel
-from models.eval import eval_normal_pixel, eval_print
+from models.eval import eval_normal_pixel, eval_print,eval_normal_pixel_Mono
 from loader.loader_utils import png_reader_32bit, png_reader_uint8
+
+def convert_rgb_mono(rgb):
+    r, g, b = rgb[:,:,0], rgb[:,:,1], rgb[:,:,2]
+    gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
+    gray = np.stack([gray,gray,gray],axis=2)
+    return gray
 
 
 def test(args):
@@ -148,14 +154,18 @@ def test(args):
         if os.path.isdir(args.out_path) == False:
             os.mkdir(args.out_path)
         print("Read Input Image from : {}".format(args.img_path))
+
+        sum_mean, sum_median, sum_small, sum_mid, sum_large, sum_num = [], [], [], [], [], []
+        evalcount = 0
         for i in os.listdir(args.img_path):
             if not i.endswith('.jpg'):
                 continue
 
-            print i
+            # print i
             input_f = args.img_path + i
             depth_f = args.depth_path + i[:-4] + '.png'
             output_f = args.out_path + i[:-4] + '_rgbd.png'
+            output_mono = args.out_path + i[:-4] + '_mono.png'
             img = misc.imread(input_f)
 
             orig_size = img.shape[:-1]
@@ -167,6 +177,8 @@ def test(args):
                 img = misc.imresize(img, (args.img_rows, args.img_cols))  # Need resize the image to model inputsize
 
             img = img.astype(np.float)
+            img_gray = convert_rgb_mono(img)
+            # misc.imsave(output_mono, img)
             if args.img_norm:
                 img = (img - 128) / 255
             # NHWC -> NCHW
@@ -223,14 +235,52 @@ def test(args):
                     outputs_valid = model_map(torch.cat((depth, valid[:, np.newaxis, :, :]), dim=1))
                     outputs, outputs1, outputs2, outputs3, output_d = model_F(images, depth,
                                                                               outputs_valid.squeeze(1))
+                    outputs_gray, _, _, _, _ = model_F(images, depth,outputs_valid.squeeze(1))
                 else:
                     outputs, outputs1, outputs2, outputs3, output_d = model_F(images, depth, outputs_valid)
-
+                    outputs_gray, _, _, _, _ = model_F(images, depth, outputs_valid)
+                
+                outputs_n, pixelnum, mean_i, median_i, small_i, mid_i, large_i = eval_normal_pixel_Mono(outputs, outputs_gray,outputs_valid)
+                # accumulate the metrics in matrix
+                if ((np.isnan(mean_i)) | (np.isinf(mean_i)) == False):
+                    sum_mean.append(mean_i)
+                    sum_median.append(median_i)
+                    sum_small.append(small_i)
+                    sum_mid.append(mid_i)
+                    sum_large.append(large_i)
+                    sum_num.append(pixelnum)
+                    print(output_f)
+                    evalcount += 1
+            # eval_print(sum_mean, sum_median, sum_small, sum_mid, sum_large, sum_num, item='Pixel-Level')
             outputs_norm = norm_imsave(outputs)
             outputs_norm = np.squeeze(outputs_norm.data.cpu().numpy(), axis=0)
             # outputs_norm = misc.imresize(outputs_norm, orig_size)
             outputs_norm = change_channel(outputs_norm)
+            outputs_norm = np.stack(outputs_norm,axis=2)
             misc.imsave(output_f, outputs_norm)
+        
+        avg_mean = sum(sum_mean) / evalcount
+        sum_mean.append(avg_mean)
+        avg_median = sum(sum_median) / evalcount
+        sum_median.append(avg_median)
+        avg_small = sum(sum_small) / evalcount
+        sum_small.append(avg_small)
+        avg_mid = sum(sum_mid) / evalcount
+        sum_mid.append(avg_mid)
+        avg_large = sum(sum_large) / evalcount
+        sum_large.append(avg_large)
+        print(
+                "evalnum is %d, Evaluation Image-Level Mean Loss: mean %.4f, median %.4f, 11.25 %.4f, 22.5 %.4f, 30 %.4f" % (
+            evalcount,
+            avg_mean, avg_median, avg_small, avg_mid, avg_large))
+
+        sum_matrix = np.transpose([sum_mean, sum_median, sum_small, sum_mid, sum_large])
+        if args.model_full_name != '':
+            sum_file = args.model_full_name[:-4] + '.csv'
+
+        np.savetxt(pjoin(args.csv_save_path, sum_file), sum_matrix, fmt='%.6f', delimiter=',')
+        print("Saving to %s" % (sum_file))
+        # end of dataset test
         print("Complete")
         # end of test on no dataset images
 
@@ -291,6 +341,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--img_rotate', dest='img_rot', action='store_true',
                         help='Enable input image transpose | False by default')
+    parser.add_argument('--csv_save_path', nargs='?', type=str, default='./metrics',
+                        help='Path for csv saving ')
     parser.add_argument('--no-img_rotate', dest='img_rot', action='store_false',
                         help='Disable input image transpose | False by default')
 

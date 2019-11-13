@@ -89,6 +89,51 @@ def eval_normal_pixel(input, label, mask):
 
     return outputs_n, val_num, mean, median, small, mid, large
 
+
+def eval_normal_pixel_Mono(input, label, mask):
+    # bs = 1 for testing
+    # input: bs*ch*h*w
+    # label: bs*h*w*ch
+    # mask: bs*h*w
+    bz, ch, h, w = input.size()
+    
+    # normalization
+    input = input.contiguous().view(-1,ch)
+    input_v = F.normalize(input,p=2)    
+    label_v = label.contiguous().view(-1,ch)
+    label_v = F.normalize(label_v,p=2) 
+    # input_v[torch.isnan(input_v)] = 0
+
+    mask_t = mask.view(-1,1)
+    mask_t = torch.squeeze(mask_t)
+
+    loss = F.cosine_similarity(input_v, label_v)#compute inner product     
+    loss[torch.ge(loss,1)] = 1
+    loss[torch.le(loss,-1)] = -1  
+    loss_angle = (180/np.pi)*torch.acos(loss)
+    loss_angle = loss_angle[torch.nonzero(mask_t)]
+
+    val_num = loss_angle.size(0) 
+
+    if val_num>0:
+        mean = torch.mean(loss_angle).data.item()
+        median = torch.median(loss_angle).data.item()    
+        small = (torch.sum(torch.lt(loss_angle, 1)).to(torch.float)/val_num).data.item()
+        mid = (torch.sum(torch.lt(loss_angle, 5)).to(torch.float)/val_num).data.item()
+        large = (torch.sum(torch.lt(loss_angle, 10)).to(torch.float)/val_num).data.item()
+    else:
+        mean=0
+        median=0
+        small=0
+        mid=0
+        large=0
+
+    outputs_n = 0.5*(input_v+1)                
+    outputs_n = outputs_n.view(-1, h, w, ch)# bs*h*w*3
+
+    return outputs_n, val_num, mean, median, small, mid, large
+
+
 def eval_normal_detail(input, label, mask):
     # bs = 1 for testing
     # input: bs*ch*h*w

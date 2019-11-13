@@ -48,7 +48,7 @@ def test(args):
         checkpoint = torch.load(pjoin(args.model_savepath, args.model_full_name))
         model_F.load_state_dict(checkpoint['model_F_state'])
         model_map.load_state_dict(checkpoint["model_map_state"])
-    
+    print(args.imgset)
     # Setup image
     if args.imgset:
         print("Test on dataset: {}".format(args.dataset))

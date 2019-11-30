@@ -38,6 +38,7 @@ def convert_rgb_mono(rgb):
 def test(args):
     # Setup Model
     # Setup the fusion model (RGB+Depth)
+    # print(args.imgset)
     model_name_F = args.arch_F
     model_F = get_model(model_name_F, True)  # concat and output
     model_F = torch.nn.DataParallel(model_F, device_ids=range(torch.cuda.device_count()))
@@ -177,14 +178,22 @@ def test(args):
                 img = misc.imresize(img, (args.img_rows, args.img_cols))  # Need resize the image to model inputsize
 
             img = img.astype(np.float)
+            # convert Mono image
             img_gray = convert_rgb_mono(img)
             # misc.imsave(output_mono, img)
             if args.img_norm:
                 img = (img - 128) / 255
+            # print(img_gray.shape)
+                img_gray = (img_gray - 128) / 255
             # NHWC -> NCHW
             img = img.transpose(2, 0, 1)
             img = np.expand_dims(img, 0)
             img = torch.from_numpy(img).float()
+
+            img_gray = img_gray.transpose(2, 0, 1)
+            img_gray = np.expand_dims(img_gray, 0)
+            img_gray = torch.from_numpy(img_gray).float()
+            
 
             if args.img_rot:
                 depth = png_reader_32bit(depth_f, (args.img_rows, args.img_cols))
@@ -225,22 +234,33 @@ def test(args):
                 images = Variable(img.contiguous().cuda())
                 depth = Variable(depth.contiguous().cuda())
                 valid = Variable(valid.contiguous().cuda())
+
+                images_gray = Variable(img_gray.contiguous().cuda())
             else:
                 images = Variable(img)
                 depth = Variable(depth)
                 valid = Variable(valid)
+
+                images_gray = Variable(img_gray)
 
             with torch.no_grad():
                 if args.arch_map == 'map_conv':
                     outputs_valid = model_map(torch.cat((depth, valid[:, np.newaxis, :, :]), dim=1))
                     outputs, outputs1, outputs2, outputs3, output_d = model_F(images, depth,
                                                                               outputs_valid.squeeze(1))
-                    outputs_gray, _, _, _, _ = model_F(images, depth,outputs_valid.squeeze(1))
+                    # Mono image prediction
+                    outputs_gray, _, _, _, _ = model_F(images_gray, depth,outputs_valid.squeeze(1))
                 else:
                     outputs, outputs1, outputs2, outputs3, output_d = model_F(images, depth, outputs_valid)
-                    outputs_gray, _, _, _, _ = model_F(images, depth, outputs_valid)
+                    # Mono image prediction
+                    outputs_gray, _, _, _, _ = model_F(images_gray, depth, outputs_valid)
                 
-                outputs_n, pixelnum, mean_i, median_i, small_i, mid_i, large_i = eval_normal_pixel_Mono(outputs, outputs_gray,outputs_valid)
+                # print( outputs_valid )
+                # mono_mask = np.ones(outputs_valid.shape)
+                # mono_mask = Variable(labels_val.contiguous().cuda())
+                outputs_n, pixelnum, mean_i, median_i, small_i, mid_i, large_i = eval_normal_pixel_Mono(outputs_gray,outputs)
+                # outputs_n, pixelnum, mean_i, median_i, small_i, mid_i, large_i = eval_normal_pixel(outputs, labels_val,masks_val)
+
                 # accumulate the metrics in matrix
                 if ((np.isnan(mean_i)) | (np.isinf(mean_i)) == False):
                     sum_mean.append(mean_i)
@@ -249,7 +269,7 @@ def test(args):
                     sum_mid.append(mid_i)
                     sum_large.append(large_i)
                     sum_num.append(pixelnum)
-                    print(output_f)
+                    # print(output_f)
                     evalcount += 1
             # eval_print(sum_mean, sum_median, sum_small, sum_mid, sum_large, sum_num, item='Pixel-Level')
             outputs_norm = norm_imsave(outputs)
@@ -258,6 +278,16 @@ def test(args):
             outputs_norm = change_channel(outputs_norm)
             outputs_norm = np.stack(outputs_norm,axis=2)
             misc.imsave(output_f, outputs_norm)
+
+            # print("save gray normal image")
+            outputs_gray_norm = norm_imsave(outputs_gray)
+            outputs_gray_norm = np.squeeze(outputs_gray_norm.data.cpu().numpy(), axis=0)
+            # outputs_norm = misc.imresize(outputs_norm, orig_size)
+            outputs_gray_norm = change_channel(outputs_gray_norm)
+            outputs_gray_norm = np.stack(outputs_gray_norm,axis=2)
+            misc.imsave(output_mono, outputs_gray_norm)
+
+
         
         avg_mean = sum(sum_mean) / evalcount
         sum_mean.append(avg_mean)

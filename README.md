@@ -112,3 +112,7 @@ To train/test on scannet
 Jin Zeng, jzeng2010@gmail.com<br>
 Yunmu Huang, hymlearn@gmail.com
 
+
+
+# CCB修改版README
++ 这个分支是将RGB图像转为Mono再输入到网络中，程序有所改动，在`test_RGBD_ms.py`文件

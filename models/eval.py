@@ -90,7 +90,7 @@ def eval_normal_pixel(input, label, mask):
     return outputs_n, val_num, mean, median, small, mid, large
 
 
-def eval_normal_pixel_Mono(input, label, mask):
+def eval_normal_pixel_Mono(input, label):
     # bs = 1 for testing
     # input: bs*ch*h*w
     # label: bs*h*w*ch
@@ -104,14 +104,14 @@ def eval_normal_pixel_Mono(input, label, mask):
     label_v = F.normalize(label_v,p=2) 
     # input_v[torch.isnan(input_v)] = 0
 
-    mask_t = mask.view(-1,1)
-    mask_t = torch.squeeze(mask_t)
+    # mask_t = mask.view(-1,1)
+    # mask_t = torch.squeeze(mask_t)
 
     loss = F.cosine_similarity(input_v, label_v)#compute inner product     
     loss[torch.ge(loss,1)] = 1
     loss[torch.le(loss,-1)] = -1  
     loss_angle = (180/np.pi)*torch.acos(loss)
-    loss_angle = loss_angle[torch.nonzero(mask_t)]
+    # loss_angle = loss_angle[torch.nonzero(mask_t)]
 
     val_num = loss_angle.size(0) 
 

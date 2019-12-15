@@ -1,4 +1,6 @@
-./checkpoint
+checkpoint/
 *.pth
 *.pyc
 *.py~
+*.zip
+*.pkl

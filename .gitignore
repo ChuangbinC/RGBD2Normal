@@ -1,4 +1,3 @@
-checkpoint/
 *.pth
 *.pyc
 *.py~

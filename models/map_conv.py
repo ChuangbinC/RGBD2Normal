@@ -1,10 +1,18 @@
+# -*- coding: UTF-8 -*-
+'''
+@Author: Chuangbin Chen
+@Date: 2019-11-05 14:48:07
+@LastEditTime: 2019-12-24 09:34:05
+@LastEditors: Do not edit
+@Description: 
+'''
 # mask to confidence map for normal refinement
 # IN
 # Implemented in Pytorch by Jin Zeng, 20181019
 
 import torch.nn as nn
 import torch
-from models_utils import *
+from .models_utils import *
 
 class map_conv(nn.Module):
     

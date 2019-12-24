@@ -1,10 +1,18 @@
+# -*- coding: UTF-8 -*-
+'''
+@Author: Chuangbin Chen
+@Date: 2019-11-05 14:48:07
+@LastEditTime: 2019-12-24 09:31:38
+@LastEditors: Do not edit
+@Description: 
+'''
 # normal estimation network from Yinda Zhang
 # https://github.com/yindaz/DeepCompletionRelease
 # Implemented in Pytorch by Jin Zeng, 20180716
 
 import torch.nn as nn
 import torch
-from models_utils import *
+from .models_utils import *
 
 class vgg_16(nn.Module):
     

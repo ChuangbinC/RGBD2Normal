@@ -1,10 +1,18 @@
+# -*- coding: UTF-8 -*-
+'''
+@Author: Chuangbin Chen
+@Date: 2019-11-05 14:48:07
+@LastEditTime: 2019-12-24 09:32:50
+@LastEditors: Do not edit
+@Description: 
+'''
 # fusion of RGB and depth branches
 # Use IN instead of BN
 # Implemented in Pytorch by Jin Zeng, 20181016
 
 import torch.nn as nn
 import torch
-from models_utils import create_conv_2_in, create_addon
+from .models_utils import create_conv_2_in, create_addon
 
 class fconv_in(nn.Module):
     

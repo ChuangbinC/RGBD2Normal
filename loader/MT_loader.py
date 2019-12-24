@@ -1,3 +1,5 @@
+# -*- coding: UTF-8 -*-
+
 import os
 from os.path import join as pjoin
 import collections
@@ -8,11 +10,14 @@ import scipy.misc as m
 import scipy.io as io
 import matplotlib.pyplot as plt
 import glob
-from loader_utils import png_reader_32bit, png_reader_uint8
+from .loader_utils import png_reader_32bit, png_reader_uint8
 
 from tqdm import tqdm
 from torch.utils import data
 
+# 加载matterport数据集
+
+# 读取数据集路径
 def get_data_path(name):
     """Extract path to data from config file.
 
@@ -40,7 +45,7 @@ class mtLoader(data.Dataset):
 
 
         # for split in ['train', 'test', 'testsmall','small_100']:
-        for split in ['train', 'test', 'testsmall']:
+        for split in ['train', 'test', 'testsmall','small_10']:
             path = pjoin('./datalist', 'mp_' + split + '_list.txt')
             file_list = tuple(open(path, 'r'))
             file_list = [id_.rstrip() for id_ in file_list]
@@ -53,19 +58,26 @@ class mtLoader(data.Dataset):
         im_name_base = self.files[self.split][index]
         im_path = pjoin(self.root,  im_name_base)
 
+        # 加载原始深度数据 undistorted_depth_images
         im_name = im_name_base.replace('_i', '_d')
-        im_name = im_name.replace('undistorted_color_dmages', 'undistorted_depth_images')        
+        # 这里undistorted_color_dmages 是因为上面将_i换成 _d
+        im_name = im_name.replace('undistorted_color_dmages', 'undistorted_depth_images')
         im_name = im_name.replace('.jpg', '.png')
         depth_path = pjoin(self.root, im_name)
+        # print(depth_path)
 
+        # render_normal 改为 mesh_image
         im_name = im_name_base.replace('_i', '_d')
-        im_name = im_name.replace('undistorted_color_dmages', 'render_normal')            
+        # im_name = im_name.replace('undistorted_color_images', 'render_normal')    
+        im_name = im_name.replace('undistorted_color_dmages', 'mesh_images')                     
         lb_path_nx = pjoin(self.root,  im_name.replace('.jpg', '_mesh_nx.png'))
         lb_path_ny = pjoin(self.root,  im_name.replace('.jpg', '_mesh_ny.png')) 
         lb_path_nz = pjoin(self.root,  im_name.replace('.jpg', '_mesh_nz.png')) 
 
+        # 加载 _mesh_depth 数据集
         im_name = im_name_base.replace('_i', '_d')
-        im_name = im_name.replace('undistorted_color_dmages', 'render_depth')   
+        # im_name = im_name.replace('undistorted_color_images', 'render_depth')  
+        im_name = im_name.replace('undistorted_color_dmages', 'mesh_images')     
         meshdepth_path = pjoin(self.root,  im_name.replace('.jpg', '_mesh_depth.png'))             
 
         im = png_reader_uint8(im_path, self.img_size)#uint8
@@ -86,17 +98,21 @@ class mtLoader(data.Dataset):
             # Resize scales images from -0.5 ~ 0.5
             im = (im-128) / 255
             # Resize scales labels from -1 ~ 1
+            # 因为是16bit 所以有正负
             lbx = lbx/65535
             lby = lby/65535
             lbz = lbz/65535
             # Resize scales masks from 0 ~ 1
+            # mask是normal的平方，浮点数，并非只有[0,1]二元mask
             mask = np.power(lbx,2) + np.power(lby,2) + np.power(lbz,2)
             mask = (mask>0.001).astype(float)
             #file holes            
             lbx[mask == 0] = 0.5
             lby[mask == 0] = 0.5
             lbz[mask == 0] = 0.5
+            # lb = [lbx,1-lbz,lby] 1-lbz 表示相反
             lb = np.concatenate((lbx[:,:,np.newaxis], 1-lbz[:,:,np.newaxis], lby[:,:,np.newaxis]), axis = 2)
+            # 缩放到[-1,1]
             lb = 2*lb-1 
             # Resize scales valid, devide by mean value           
             rawdepth = rawdepth/40000

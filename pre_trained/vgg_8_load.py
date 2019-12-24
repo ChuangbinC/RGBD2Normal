@@ -5,7 +5,7 @@
 #####################################
 import torch
 import torch.nn as nn
-import vgg_16
+from . import vgg_16
 
 def load_vgg_8(model, state='mp'):
     model_vgg = vgg_16.normal_scannet_cpu

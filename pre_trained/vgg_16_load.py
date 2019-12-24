@@ -5,8 +5,9 @@
 #####################################
 import torch
 import torch.nn as nn
-import vgg_16
+from . import vgg_16
 
+# 加载模型参数
 def load_vgg_16(model, state='mp'):
     model_vgg = vgg_16.normal_scannet_cpu
     if state == 'scannet':
@@ -27,6 +28,8 @@ def load_vgg_16(model, state='mp'):
     if state != 'mp_in':
         model_params['conv1.conv.1.weight'] = model_vgg_params['1.weight']
         model_params['conv1.conv.1.bias'] = model_vgg_params['1.bias']  
+    # running_mean  running_var 是统计变量特性，并不是学习参数，因此可以不用加入到模型学习之中
+    
     # model_params['conv1.conv.1.running_mean'] = model_vgg_params['1.running_mean']
     # model_params['conv1.conv.1.running_var'] = model_vgg_params['1.running_var']
     model_params['conv1.conv.3.weight'] = model_vgg_params['3.weight']

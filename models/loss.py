@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 # ################################
 # Loss functions
 # cosine, l1
@@ -72,14 +73,21 @@ def l1norm(input, label, mask, train=True):
         loss = F.l1_loss(input_v, label_v, reduce=False)#compute inner product
         loss[torch.eq(mask_t,0)] = 0 #rm the masked pixels 
         loss = torch.mean(loss)
+        # 表示 loss关于input_v的导数
         df = torch.autograd.grad(loss,input_v,only_inputs=True)
+
         df = df[0]
+        # 因为上面预计算了梯度，input_v是normalize后的vector，但是原来的张量是input 
+        # grad_outputs 相当于权重 d(input_v)/d(input)*df = d(input_v)/d(input)*d(loss)/d(input_v) = d(loss)/d(input)
+        # 链式法则
         df = torch.autograd.grad(input_v,input,grad_outputs=df,only_inputs=True)
         df = df[0]
         mask = mask.contiguous().view(-1,1).expand_as(df)
         df[torch.eq(mask,0)] = 0
         df = df.view(-1, h, w, ch)
+        # 转为input的输出格式 bs*h*w*ch(label) -> bs*ch*h*w
         df = df.permute(0,3,1,2).contiguous()
+
     else:  # use mask from depth valid
         # input_v[torch.isnan(input_v)] = 0
         # loss = F.cosine_similarity(input_v, label_v)#compute inner product

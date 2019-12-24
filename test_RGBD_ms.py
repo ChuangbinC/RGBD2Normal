@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 ##########################
 # Test normal estimation
 # RGBD input
@@ -36,6 +37,7 @@ def test(args):
     model_F = get_model(model_name_F, True)  # concat and output
     model_F = torch.nn.DataParallel(model_F, device_ids=range(torch.cuda.device_count()))
     # Setup the map model
+    # arch_map 有两种模式，一种是直接使用二元的Mask，另外一种就是下面的conv_mask
     if args.arch_map == 'map_conv':
         model_name_map = args.arch_map
         model_map = get_model(model_name_map, True)  # concat and output
@@ -76,7 +78,7 @@ def test(args):
                 masks_val = Variable(masks_val.contiguous().cuda())
                 valids_val = Variable(valids_val.contiguous().cuda())
                 depthes_val = Variable(depthes_val.contiguous().cuda())
-
+                # 下面的区分是使用 Map_conv(作者提出的depth map mask)或者使用原始的二值Mask
                 if args.arch_map == 'map_conv':
                     outputs_valid = model_map(torch.cat((depthes_val, valids_val[:, np.newaxis, :, :]), dim=1))
                     outputs, outputs1, outputs2, outputs3, output_d = model_F(images_val, depthes_val,
@@ -96,6 +98,7 @@ def test(args):
                 depthes_val = np.repeat(depthes_val, 3, axis=2)
 
                 outputs_norm = change_channel(outputs_norm)
+                # [0,1]
                 labels_val_norm = (labels_val_norm + 1) / 2
                 labels_val_norm = change_channel(labels_val_norm)
 
@@ -144,7 +147,7 @@ def test(args):
             np.savetxt(pjoin(args.model_savepath, sum_file), sum_matrix, fmt='%.6f', delimiter=',')
             print("Saving to %s" % (sum_file))
             # end of dataset test
-    else:
+    else:# 测试单张图像 not GT
         if os.path.isdir(args.out_path) == False:
             os.mkdir(args.out_path)
         print("Read Input Image from : {}".format(args.img_path))
@@ -152,7 +155,6 @@ def test(args):
             if not i.endswith('.jpg'):
                 continue
 
-            print i
             input_f = args.img_path + i
             depth_f = args.depth_path + i[:-4] + '.png'
             output_f = args.out_path + i[:-4] + '_rgbd.png'

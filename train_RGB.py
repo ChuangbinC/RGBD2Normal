@@ -48,6 +48,7 @@ def train(args):
     model = get_model(model_name, True)  # vgg_16
     if args.pretrain:  # True by default
         if args.input == 'rgb':  # only for rgb we have pretrain option
+            # 加载预训练模型的参数
             state = get_premodel(model, args.state_name)
             model.load_state_dict(state)
             model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
@@ -117,6 +118,7 @@ def train(args):
                 loss_grad, df_grad = get_lossfun('gradmap', outputs, labels, masks)
 
             if args.l1regular:
+                # retain_graph 保留计算图，因为这里使用了多个自定义loss来求导，因此保留计算图，在把所有backward叠加后，再forward
                 outputs.backward(gradient=df, retain_graph=True)
                 outputs.backward(gradient=0.1 * df_rgl)
             elif args.gradloss:
@@ -158,6 +160,7 @@ def train(args):
         model.eval()
         mean_loss, sum_loss, sum_rgl, sum_grad = 0, 0, 0, 0
         evalcount = 0
+        # 下面是验证数据集
         with torch.no_grad():
             for i_val, (images_val, labels_val, masks_val, valids_val, depthes_val, meshdepthes_val) in tqdm(
                     enumerate(evalloader)):

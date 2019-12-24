@@ -1,7 +1,7 @@
 {
     "matterport":
   {
-    "data_path":""
+    "data_path":"/home/lab/data1/chuangbin/dataSet/matterport/v1/scans"
   },
 
   "scannet":

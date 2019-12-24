@@ -1,3 +1,11 @@
+# -*- coding: UTF-8 -*-
+'''
+@Author: Chuangbin Chen
+@Date: 2019-11-05 14:48:07
+@LastEditTime: 2019-12-24 09:33:09
+@LastEditors: Do not edit
+@Description: 
+'''
 # normal estimation network from Yinda Zhang
 # https://github.com/yindaz/DeepCompletionRelease
 # Multiscale loss
@@ -5,7 +13,7 @@
 
 import torch.nn as nn
 import torch
-from models_utils import *
+from .models_utils import *
 
 class vgg_16_ms(nn.Module):
     

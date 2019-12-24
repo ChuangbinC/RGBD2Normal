@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 ##########################
 # Test normal estimation
 # Pure RGB input without Depth
@@ -44,7 +45,7 @@ def test(args):
             test_info = 'batch'
 
     if args.model_full_name != '':
-        # Use the full name of model to load
+        # Use the full name of model to load 加载自己训练的模型
         print("Load training model: " + args.model_full_name)
         checkpoint = torch.load(pjoin(args.model_savepath, args.model_full_name))
         if testset_out_path == '':
@@ -52,7 +53,7 @@ def test(args):
         model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
         model.load_state_dict(checkpoint['model_RGB_state'])
     else:
-        # Pretrain model
+        # Pretrain model 加载预训练模型
         print("Load pretrained model: {}".format(args.state_name))
         state = get_premodel(model, args.state_name)
         model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))

@@ -1,11 +1,12 @@
 
 import torch
 import torch.nn as nn
-import torch.legacy.nn as lnn
+#import torch.legacy.nn as lnn
 
 from functools import reduce
 from torch.autograd import Variable
 
+# 下面的 Lambda 貌似在整个程序并没有用到
 class LambdaBase(nn.Sequential):
     def __init__(self, fn, *args):
         super(LambdaBase, self).__init__(*args)

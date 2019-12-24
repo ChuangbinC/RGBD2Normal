@@ -1,9 +1,17 @@
+# -*- coding: UTF-8 -*-
+'''
+@Author: Chuangbin Chen
+@Date: 2019-11-05 14:48:07
+@LastEditTime: 2019-12-24 09:32:37
+@LastEditors: Do not edit
+@Description: 
+'''
 # fusion of RGB and depth branches
 # Implemented in Pytorch by Jin Zeng, 20180724
 
 import torch.nn as nn
 import torch
-from models_utils import create_conv_2, create_addon
+from .models_utils import create_conv_2, create_addon
 
 
 class fconv(nn.Module):

@@ -13,7 +13,7 @@ from models.unet_3_mask_depth_in import *
 from models.unet_3_normal_sm import *
 from models.unet_3_grad import *
 from models.map_conv import *
-
+# track_running_static 是跟踪 BatchNorm 的平均值和方差的控制变量，但是本程序并没有用到
 def get_model(name, track_running_static):
     model = _get_model_instance(name)
 
@@ -49,7 +49,7 @@ def get_model(name, track_running_static):
         model = model(input_channel=2, output_channel=1, track_running_static = track_running_static)
     
     return model
-
+# 模型选择，normal估计模型以及
 def _get_model_instance(name):
     try:
         return {

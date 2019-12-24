@@ -18,7 +18,7 @@ def eval_normal(input, label, mask):
     # mask: bs*h*w
     bz, ch, h, w = input.size()
     
-    # normalization
+    # normalization -1表示 size由其他维度推断出来
     input = input.permute(0,2,3,1).contiguous().view(-1,ch)
     input_v = F.normalize(input,p=2)    
     label_v = label.contiguous().view(-1,ch)
@@ -28,6 +28,7 @@ def eval_normal(input, label, mask):
     mask_t = mask.view(-1,1)
     mask_t = torch.squeeze(mask_t)
 
+    # 通过内积求解余弦相似度来比较三维向量的角度
     loss = F.cosine_similarity(input_v, label_v)#compute inner product     
     loss[torch.ge(loss,1)] = 1
     loss[torch.le(loss,-1)] = -1  
@@ -37,6 +38,7 @@ def eval_normal(input, label, mask):
     mean = torch.mean(loss_angle)
     median = torch.median(loss_angle)
     val_num = loss_angle.size(0)
+    # 求解角度在每个分布的统计量
     small = torch.sum(torch.lt(loss_angle, 11.25)).to(torch.float)/val_num
     mid = torch.sum(torch.lt(loss_angle, 22.5)).to(torch.float)/val_num
     large = torch.sum(torch.lt(loss_angle, 30)).to(torch.float)/val_num
@@ -46,6 +48,7 @@ def eval_normal(input, label, mask):
 
     return outputs_n, mean.data.item(), median.data.item(), small.data.item(), mid.data.item(), large.data.item()
 
+# 跟上上面的区别不大，返回像素数量
 def eval_normal_pixel(input, label, mask):
     # bs = 1 for testing
     # input: bs*ch*h*w
@@ -83,7 +86,7 @@ def eval_normal_pixel(input, label, mask):
         small=0
         mid=0
         large=0
-
+    # +1/2 归一化到[0,1]
     outputs_n = 0.5*(input_v+1)                
     outputs_n = outputs_n.view(-1, h, w, ch)# bs*h*w*3
 

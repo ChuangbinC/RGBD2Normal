@@ -13,7 +13,7 @@ import scipy.misc as m
 import scipy.io as io
 import matplotlib.pyplot as plt
 import glob
-from loader_utils import png_reader_32bit, png_reader_uint8
+from .loader_utils import png_reader_32bit, png_reader_uint8
 
 from tqdm import tqdm
 from torch.utils import data

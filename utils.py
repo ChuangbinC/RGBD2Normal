@@ -4,13 +4,17 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+# 改变通道 nx=1-norm ny=1-norm nz=norm ，为了更好的论文显示效果
+# 最终的显示效果是 相对于正常的相机坐标系， X轴是相反的，y,z是正常的
 def change_channel(outputs_norm, scale=1):
     row,col,channel=outputs_norm.shape
-    nx = np.ones((row,col)) -outputs_norm[:, :, 0]
+    nx = np.ones((row,col)) - outputs_norm[:, :, 0]
     ny = np.ones((row,col)) - outputs_norm[:, :, 1]
     nz = outputs_norm[:, :, 2]
-    new_norm = [nx, nz, ny]
+    # 原来是 new_norm = [nx, nz, ny] 但是这个是一个列表，没办法保存
+    new_norm = np.concatenate((np.expand_dims(nx,2), np.expand_dims(nz,2), np.expand_dims(ny,2)),axis=2)
     return new_norm
+
 def get_dataList(filename):
     f = open(filename, 'r')
     data_list = list()
@@ -80,6 +84,7 @@ def norm_imsave(outputs):
     # outputs_norm = sk.normalize(outputs_s, norm='l2', axis=1)
     # outputs_norm = outputs_norm.reshape(orig_size[0], orig_size[1], 3)
     # outputs_norm = 0.5*(outputs_norm+1)
+
     bz, ch, img_rows, img_cols = outputs.size()# bz should be one for imsave
     outputs = outputs.permute(0,2,3,1).contiguous().view(-1,ch)
     outputs_n = F.normalize(outputs,p=2)

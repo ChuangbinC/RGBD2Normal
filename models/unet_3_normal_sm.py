@@ -1,10 +1,18 @@
+# -*- coding: UTF-8 -*-
+'''
+@Author: Chuangbin Chen
+@Date: 2019-11-05 14:48:07
+@LastEditTime: 2019-12-24 09:33:51
+@LastEditors: Do not edit
+@Description: 
+'''
 # normal estimation network 
 # RGB->Normal (1/8 size)
 # Implemented in Pytorch by Jin Zeng, 20180912
 
 import torch.nn as nn
 import torch
-from models_utils import *
+from .models_utils import *
 
 class vgg_8(nn.Module):
     

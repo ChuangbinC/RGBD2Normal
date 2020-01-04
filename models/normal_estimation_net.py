@@ -2,8 +2,8 @@
 '''
 @Author: Chuangbin Chen
 @Date: 2019-11-05 14:48:07
-@LastEditTime: 2019-12-24 09:31:38
-@LastEditors: Do not edit
+@LastEditTime : 2019-12-25 11:03:35
+@LastEditors  : Do not edit
 @Description: 
 '''
 # normal estimation network from Yinda Zhang
@@ -24,7 +24,8 @@ class vgg_16(nn.Module):
         filters = [64, 128, 256, 512, 512]
 
         # encoder
-        self.bn1 = nn.BatchNorm2d(3)
+        # self.bn1 = nn.BatchNorm2d(3)
+        print('track is {}'.format(self.track))
         self.conv1 = create_conv_2(self.input_channel, filters[0],track=self.track)
         self.conv2 = create_conv_2(filters[0], filters[1],track=self.track)
         self.conv3 = create_conv_3(filters[1], filters[2],track=self.track)

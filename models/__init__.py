@@ -19,7 +19,7 @@ def get_model(name, track_running_static):
 
     if name == 'vgg_16':
         model = model(input_channel=3, output_channel=3, track_running_static = track_running_static)
-    elif name == 'vgg_16_in':
+    elif name == 'vgg_16_in': # 跟上面的区别是 这里用的是InstanceNorm2d 上面用的是 BatchNorm2d
         model = model(input_channel=3, output_channel=3, track_running_static = track_running_static) 
     elif name == 'vgg_16_in_rgbd':# same vgg_16 but input ch num is 4
         model = model(input_channel=4, output_channel=3, track_running_static = track_running_static)    
@@ -54,7 +54,7 @@ def _get_model_instance(name):
     try:
         return {
             'vgg_16': vgg_16,
-            'vgg_16_in': vgg_16_in,
+            'vgg_16_in': vgg_16_in, 
             'vgg_16_in_rgbd': vgg_16_in,
             'unet_3': unet_3,
             'unet_3_in': unet_3_in,

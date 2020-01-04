@@ -1,5 +1,7 @@
 checkpoint/
 result/
+runs/
+*.out
 *.pth
 *.pyc
 *.py~

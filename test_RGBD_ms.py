@@ -30,6 +30,7 @@ from models.eval import eval_normal_pixel, eval_print
 from loader.loader_utils import png_reader_32bit, png_reader_uint8
 
 
+
 def test(args):
     # Setup Model
     # Setup the fusion model (RGB+Depth)
@@ -47,9 +48,12 @@ def test(args):
         # Use the full name of model to load
         print("Load training model: " + args.model_full_name)
         checkpoint = torch.load(pjoin(args.model_savepath, args.model_full_name))
+        # print(checkpoint['model_F_state'])
+
         model_F.load_state_dict(checkpoint['model_F_state'])
         model_map.load_state_dict(checkpoint["model_map_state"])
 
+        assert False
 
     # Setup image
     if args.imgset:
@@ -57,10 +61,10 @@ def test(args):
         data_loader = get_loader(args.dataset)
         data_path = get_data_path(args.dataset)
         v_loader = data_loader(data_path, split=args.test_split, img_size=(args.img_rows, args.img_cols),
-                               img_norm=args.img_norm)
+                               img_norm=args.img_norm,mono=args.mono_img)
         evalloader = data.DataLoader(v_loader, batch_size=1)
         print("Finish Loader Setup")
-
+        
         model_F.cuda()
         model_F.eval()
         if args.arch_map == 'map_conv':
@@ -158,6 +162,7 @@ def test(args):
             input_f = args.img_path + i
             depth_f = args.depth_path + i[:-4] + '.png'
             output_f = args.out_path + i[:-4] + '_rgbd.png'
+            output_mono = args.out_path + i[:-4] + '_mono.png'
             img = misc.imread(input_f)
 
             orig_size = img.shape[:-1]
@@ -290,6 +295,12 @@ if __name__ == '__main__':
     parser.add_argument('--no-img_norm', dest='img_norm', action='store_false',
                         help='Disable input image scales normalization [0, 1] | True by default')
     parser.set_defaults(img_norm=True)
+
+    parser.add_argument('--mono_img', dest='mono_img', action='store_true',
+                        help='False by default')
+    parser.add_argument('--no-mono_img', dest='mono_img', action='store_false',
+                        help='False by default')
+    parser.set_defaults(mono_img=False)
 
     parser.add_argument('--img_rotate', dest='img_rot', action='store_true',
                         help='Enable input image transpose | False by default')

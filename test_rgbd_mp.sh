@@ -6,4 +6,4 @@
  # @Description:
  ###
 #!/bin/zsh
-python test_RGBD_ms.py --arch_F fconv_ms --arch_map map_conv --dataset matterport --test_split small_10 --testset --testset_out_path ./result/mp_10 --d_scale 40000 --img_rows 256 --img_cols 320 --model_savepath ./checkpoint/FCONV_MS/  --model_full_name fconv_ms_matterport_l1_2_hybrid_best.pkl 
+python test_RGBD_ms.py --arch_F fconv_ms --arch_map map_conv --dataset matterport --test_split testsmall --testset --testset_out_path ./result/mp_testsmall --d_scale 40000 --img_rows 256 --img_cols 320 --model_savepath ./checkpoint/FCONV_MS/  --model_full_name fconv_ms_matterport_l1_2_hybrid_best.pkl 

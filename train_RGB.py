@@ -19,6 +19,7 @@ from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils import data
 from tqdm import tqdm
+from torch.utils.data import DataLoader
 
 from models import get_model, get_lossfun
 from loader import get_data_path, get_loader
@@ -26,6 +27,11 @@ from pre_trained import get_premodel
 from models.loss import cross_cosine
 from utils import norm_tf, load_resume_state_dict
 
+from prefetch_generator import BackgroundGenerator
+
+class DataLoaderX(DataLoader):
+    def __iter__(self):
+        return BackgroundGenerator(super().__iter__())
 
 # from sync_batchnorm import DataParallelWithCallback  
 
@@ -38,8 +44,11 @@ def train(args):
     t_loader = data_loader(data_path, split='train', img_size=(args.img_rows, args.img_cols), img_norm=args.img_norm)
     v_loader = data_loader(data_path, split='test', img_size=(args.img_rows, args.img_cols), img_norm=args.img_norm)
 
-    trainloader = data.DataLoader(t_loader, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
-    evalloader = data.DataLoader(v_loader, batch_size=args.batch_size, num_workers=args.num_workers)
+    # trainloader = data.DataLoader(t_loader, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+    # evalloader = data.DataLoader(v_loader, batch_size=args.batch_size, num_workers=args.num_workers)
+    trainloader = DataLoaderX(t_loader, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+    evalloader = DataLoaderX(v_loader, batch_size=args.batch_size, num_workers=args.num_workers)
+
     print("Finish Loader Setup")
 
     # Setup Model and load pretrained model
@@ -56,7 +65,6 @@ def train(args):
             print("Load training model: {}_{}_{}_{}_best.pkl".format(args.arch_RGB, args.dataset, args.loss, 1))
             checkpoint = torch.load(pjoin(args.model_savepath_pretrain,
                                           "{}_{}_{}_{}_best.pkl".format(args.arch_RGB, args.dataset, args.loss, 1)))
-            # model.load_state_dict(load_resume_state_dict(model, checkpoint['model_D_state']))   
             model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
             model.load_state_dict(checkpoint['model_D_state'])
     else:
@@ -74,6 +82,7 @@ def train(args):
     else:
         optimizer_RGB = torch.optim.RMSprop(model.parameters(), lr=args.l_rate)
         scheduler_RGB = torch.optim.lr_scheduler.MultiStepLR(optimizer_RGB, milestones=[1, 3, 5, 8, 11, 15], gamma=0.5)
+    writer.add_scalar('learning_rate/learning_rate', scheduler_RGB.get_lr(), 0)
 
     # forward and backward
     best_loss = 3
@@ -90,7 +99,6 @@ def train(args):
 
     for epoch in range(args.n_epoch):
 
-        scheduler_RGB.step()
         model.train()
 
         for i, (images, labels, masks, valids, depthes, meshdepthes) in enumerate(trainloader):
@@ -156,6 +164,7 @@ def train(args):
                 writer.add_images('Label', 0.5 * (labels.permute(0, 3, 1, 2) + 1), n_iter_t)
                 outputs_n = norm_tf(outputs)
                 writer.add_images('Output', outputs_n, n_iter_t)
+                writer.add_scalar('learning_rate/learning_rate', scheduler_RGB.get_lr(), n_iter_t)
 
         model.eval()
         mean_loss, sum_loss, sum_rgl, sum_grad = 0, 0, 0, 0
@@ -185,7 +194,7 @@ def train(args):
                 elif args.gradloss:
                     loss_grad, df_grad = get_lossfun('gradmap', outputs, labels_val, masks_val, False)
 
-                if ((np.isnan(loss)) | (np.isinf(loss))):
+                if ((np.isnan(loss.cpu())) | (np.isinf(loss.cpu()))):
                     sum_loss += 0
                 else:
                     sum_loss += loss
@@ -213,7 +222,7 @@ def train(args):
             writer.add_scalar('loss/evalloss_mean', mean_loss, epoch)
             writer.add_scalar('loss/evalloss_rgl_mean', sum_rgl / evalcount, epoch)
             writer.add_scalar('loss/evalloss_grad_mean', sum_grad / evalcount, epoch)
-
+        scheduler_RGB.step() 
         if mean_loss < best_loss:  # if (epoch+1)%20 == 0:
             best_loss = mean_loss
             state = {'epoch': epoch + 1,

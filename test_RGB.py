@@ -24,6 +24,8 @@ from pre_trained import get_premodel
 from utils import norm_imsave, get_dataList, change_channel
 from models.eval import eval_normal
 
+import tensorwatch as tw
+
 # For mat file handling
 import scipy.io as sio
 
@@ -31,7 +33,8 @@ import scipy.io as sio
 def test(args):
     # Setup Model
     model_name = args.arch_RGB
-    model = get_model(model_name, True)  # vgg_16
+    model = get_model(model_name, False)  # vgg_16
+
     testset_out_default_path = "./result/"
     testset_out_path = args.result_path
     if args.imgset:
@@ -52,6 +55,8 @@ def test(args):
             testset_out_path = "{}{}_{}".format(testset_out_default_path, args.model_full_name, test_info)
         model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
         model.load_state_dict(checkpoint['model_RGB_state'])
+        print(model.state_dict)
+        assert False
     else:
         # Pretrain model 加载预训练模型
         print("Load pretrained model: {}".format(args.state_name))
@@ -72,7 +77,7 @@ def test(args):
         data_loader = get_loader(args.test_dataset)
         data_path = get_data_path(args.test_dataset)
         v_loader = data_loader(data_path, split=args.test_split, img_size=(args.img_rows, args.img_cols),
-                               img_norm=args.img_norm)
+                               img_norm=args.img_norm,mono=args.mono_img)
         evalloader = data.DataLoader(v_loader, batch_size=1)
         print("Finish Loader Setup")
 
@@ -305,6 +310,12 @@ if __name__ == '__main__':
     parser.add_argument('--no-img_rotate', dest='img_rot', action='store_false',
                         help='Disable input image transpose | False by default')
     parser.set_defaults(img_rot=False)
+
+    parser.add_argument('--mono_img', dest='mono_img', action='store_true',
+                        help='False by default')
+    parser.add_argument('--no-mono_img', dest='mono_img', action='store_false',
+                        help='False by default')
+    parser.set_defaults(mono_img=False)
 
     args = parser.parse_args()
     test(args)

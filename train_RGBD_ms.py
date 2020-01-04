@@ -128,7 +128,8 @@ def train(args):
                 loss1, df1 = get_lossfun(args.loss, outputs1, labels, masks)
                 loss2, df2 = get_lossfun('cosine', outputs2, labels, masks)
                 loss3, df3 = get_lossfun('cosine', outputs3, labels, masks)
-
+                
+            # 混合loss 的权重分布
             outputs.backward(gradient=df, retain_graph=True)
             if args.hybrid_loss:
                 outputs1.backward(gradient=0.5 * df1, retain_graph=True)

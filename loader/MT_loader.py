@@ -14,7 +14,7 @@ from .loader_utils import png_reader_32bit, png_reader_uint8
 
 from tqdm import tqdm
 from torch.utils import data
-
+import time 
 # 加载matterport数据集
 
 # 读取数据集路径
@@ -35,14 +35,16 @@ class mtLoader(data.Dataset):
     """Data loader for the MatterPort3D dataset.
 
     """
-    def __init__(self, root, split='train', img_size=(256,320), img_norm=True):
+    def __init__(self, root, split='train', img_size=(256,320), img_norm=True,mono=False):
         self.root = os.path.expanduser(root)
         self.split = split
         self.img_norm = img_norm
+        self.mono = mono
         self.files = collections.defaultdict(list)
         self.img_size = img_size if isinstance(img_size, tuple) \
                                                else (img_size, img_size)
-
+        if(self.mono):
+            print("Loading mono image dataset!")
 
         # for split in ['train', 'test', 'testsmall','small_100']:
         for split in ['train', 'test', 'testsmall','small_10']:
@@ -50,6 +52,12 @@ class mtLoader(data.Dataset):
             file_list = tuple(open(path, 'r'))
             file_list = [id_.rstrip() for id_ in file_list]
             self.files[split] = file_list
+
+    def convert_rgb_mono(self,rgb):
+        r, g, b = rgb[:,:,0], rgb[:,:,1], rgb[:,:,2]
+        gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
+        gray = np.clip(np.stack([gray,gray,gray],axis=2),0,255).astype(np.uint8)
+        return gray
 
     def __len__(self):
         return len(self.files[self.split])
@@ -64,8 +72,8 @@ class mtLoader(data.Dataset):
         im_name = im_name.replace('undistorted_color_dmages', 'undistorted_depth_images')
         im_name = im_name.replace('.jpg', '.png')
         depth_path = pjoin(self.root, im_name)
-        # print(depth_path)
-
+        
+        # starttime = time.time()
         # render_normal 改为 mesh_image
         im_name = im_name_base.replace('_i', '_d')
         # im_name = im_name.replace('undistorted_color_images', 'render_normal')    
@@ -87,12 +95,18 @@ class mtLoader(data.Dataset):
         lbz = png_reader_32bit(lb_path_nz, self.img_size)
         meshdepth = png_reader_32bit(meshdepth_path, self.img_size)  
 
+        if(self.mono):
+            im = self.convert_rgb_mono(im)
         im = im.astype(float) 
         rawdepth = rawdepth.astype(float)     
         lbx = lbx.astype(float)
         lby = lby.astype(float)
         lbz = lbz.astype(float)  
         meshdepth = meshdepth.astype(float)      
+        # endtime = time.time()
+        # print('The time of reading Image is {}'.format((endtime - starttime)))
+
+        # starttime = time.time()
 
         if self.img_norm:
             # Resize scales images from -0.5 ~ 0.5
@@ -119,6 +133,8 @@ class mtLoader(data.Dataset):
             meshdepth = meshdepth/40000
             # Get valid from rawdepth
             valid = (rawdepth>0.0001).astype(float)
+        # endtime = time.time()
+        # print('The time of norm Image is {}'.format((endtime - starttime)))
 
         # NHWC -> NCHW
         im = im.transpose(2, 0, 1)

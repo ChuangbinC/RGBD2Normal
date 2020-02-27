@@ -6,3 +6,8 @@ runs/
 *.pyc
 *.py~
 *.zip
+*.swp
+.vscode/
+out_text/
+__pycache__/
+sample_pic/

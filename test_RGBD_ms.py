@@ -26,7 +26,7 @@ from models import get_model, get_lossfun
 from loader import get_data_path, get_loader
 from pre_trained import get_premodel
 from utils import norm_imsave, change_channel
-from models.eval import eval_normal_pixel, eval_print
+from models.eval import eval_normal_pixel, eval_print,eval_normal_pixel_me
 from loader.loader_utils import png_reader_32bit, png_reader_uint8
 
 
@@ -51,9 +51,8 @@ def test(args):
         # print(checkpoint['model_F_state'])
 
         model_F.load_state_dict(checkpoint['model_F_state'])
-        model_map.load_state_dict(checkpoint["model_map_state"])
-
-        assert False
+        # model_map.load_state_dict(checkpoint["model_map_state"])
+        
 
     # Setup image
     if args.imgset:
@@ -61,7 +60,7 @@ def test(args):
         data_loader = get_loader(args.dataset)
         data_path = get_data_path(args.dataset)
         v_loader = data_loader(data_path, split=args.test_split, img_size=(args.img_rows, args.img_cols),
-                               img_norm=args.img_norm,mono=args.mono_img)
+                               img_norm=args.img_norm,mono=args.mono_img,add_normal=True)
         evalloader = data.DataLoader(v_loader, batch_size=1)
         print("Finish Loader Setup")
         
@@ -97,9 +96,9 @@ def test(args):
                 images_val = np.squeeze(images_val.data.cpu().numpy(), axis=0)
                 images_val = images_val + 0.5
                 images_val = images_val.transpose(1, 2, 0)
-                depthes_val = np.squeeze(depthes_val.data.cpu().numpy(), axis=0)
-                depthes_val = np.transpose(depthes_val, [1, 2, 0])
-                depthes_val = np.repeat(depthes_val, 3, axis=2)
+                # depthes_val = np.squeeze(depthes_val.data.cpu().numpy(), axis=0)
+                # depthes_val = np.transpose(depthes_val, [1, 2, 0])
+                # depthes_val = np.repeat(depthes_val, 3, axis=2)
 
                 outputs_norm = change_channel(outputs_norm)
                 # [0,1]
@@ -110,7 +109,7 @@ def test(args):
                 misc.imsave(pjoin(args.testset_out_path, "{}_MS_hyb.png".format(i_val + 1)), outputs_norm)
                 misc.imsave(pjoin(args.testset_out_path, "{}_gt.png".format(i_val + 1)), labels_val_norm)
                 misc.imsave(pjoin(args.testset_out_path, "{}_in.jpg".format(i_val + 1)), images_val)
-                misc.imsave(pjoin(args.testset_out_path, "{}_depth.png".format(i_val + 1)), depthes_val)
+                # misc.imsave(pjoin(args.testset_out_path, "{}_depth.png".format(i_val + 1)), depthes_val)
 
                 # accumulate the metrics in matrix
                 if ((np.isnan(mean_i)) | (np.isinf(mean_i)) == False):
@@ -156,14 +155,31 @@ def test(args):
             os.mkdir(args.out_path)
         print("Read Input Image from : {}".format(args.img_path))
         for i in os.listdir(args.img_path):
-            if not i.endswith('.jpg'):
+            if not i.endswith('.png'):
                 continue
-
+            print("Reading image : {}".format(i))
             input_f = args.img_path + i
-            depth_f = args.depth_path + i[:-4] + '.png'
-            output_f = args.out_path + i[:-4] + '_rgbd.png'
-            output_mono = args.out_path + i[:-4] + '_mono.png'
+            normal_x_f = args.depth_path + i.replace('.png', '_nx.png')
+            normal_y_f = args.depth_path + i.replace('.png', '_ny.png')
+            normal_z_f = args.depth_path + i.replace('.png', '_nz.png')
+            output_f = args.out_path + i.replace('.png', '_rgbd.png')
+            gt_normal_x_f = args.gt_path + i.replace('.png', '_nx.png')
+            if os.path.exists(gt_normal_x_f):
+                gt_normal_y_f = args.gt_path + i.replace('.png', '_ny.png')
+                gt_normal_z_f = args.gt_path + i.replace('.png', '_nz.png')
+                gt_normal_x = png_reader_32bit(gt_normal_x_f, (args.img_rows, args.img_cols))
+                gt_normal_y = png_reader_32bit(gt_normal_y_f, (args.img_rows, args.img_cols))
+                gt_normal_z = png_reader_32bit(gt_normal_z_f, (args.img_rows, args.img_cols))
+
+                gt_normal_x = gt_normal_x.astype(float)/32768 - 1
+                gt_normal_y = gt_normal_y.astype(float)/32768 - 1
+                gt_normal_z = gt_normal_z.astype(float)/32768 - 1
+                gt_normal = np.concatenate((gt_normal_x[:,:,np.newaxis], gt_normal_y[:,:,np.newaxis], gt_normal_z[:,:,np.newaxis]), axis = 2)
+                gt_normal = torch.from_numpy(gt_normal).float()
+                # print(gt_normal.shape)
+
             img = misc.imread(input_f)
+            img = np.stack([img,img,img],axis=2)
 
             orig_size = img.shape[:-1]
             if args.img_rot:
@@ -171,7 +187,8 @@ def test(args):
                 img = np.flipud(img)
                 img = misc.imresize(img, (args.img_cols, args.img_rows))  # Need resize the image to model inputsize
             else:
-                img = misc.imresize(img, (args.img_rows, args.img_cols))  # Need resize the image to model inputsize
+                pass
+                # img = misc.imresize(img, (args.img_rows, args.img_cols))  # Need resize the image to model inputsize
 
             img = img.astype(np.float)
             if args.img_norm:
@@ -180,7 +197,6 @@ def test(args):
             img = img.transpose(2, 0, 1)
             img = np.expand_dims(img, 0)
             img = torch.from_numpy(img).float()
-
             if args.img_rot:
                 depth = png_reader_32bit(depth_f, (args.img_rows, args.img_cols))
                 depth = np.transpose(depth, (1, 0))
@@ -189,27 +205,33 @@ def test(args):
                 # valid = np.transpose(valid, (1,0))
                 # valid = np.flipud(valid)
             else:
-                depth = png_reader_32bit(depth_f, (args.img_rows, args.img_cols))
+                normal_x = png_reader_32bit(normal_x_f, (args.img_rows, args.img_cols))
+                normal_y = png_reader_32bit(normal_y_f, (args.img_rows, args.img_cols))
+                normal_z = png_reader_32bit(normal_z_f, (args.img_rows, args.img_cols))
+
                 # valid = png_reader_uint8(mask_f, (args.img_rows,args.img_cols))
+                
+            normal_x = normal_x.astype(float)/32768 - 1
+            normal_y = normal_y.astype(float)/32768 - 1
+            normal_z = normal_z.astype(float)/32768 - 1
 
-            depth = depth.astype(float)
-            # Please change to the scale so that scaled_depth=1 corresponding to real 10m depth
-            # matterpot depth=depth/40000  scannet depth=depth/10000
-            depth = depth / (args.d_scale)
-            if depth.ndim == 3:  # to dim 2
-                depth = depth[:, :, 0]
-                # if valid.ndim == 3: #to dim 2
-            #     valid = valid[:,:,0]
+            # if depth.ndim == 3:  # to dim 2
+            #     depth = depth[:, :, 0]
 
+
+            normal = np.concatenate((normal_x[:,:,np.newaxis], normal_y[:,:,np.newaxis], normal_z[:,:,np.newaxis]), axis = 2)
+            normal = normal.transpose(2, 0, 1)
+            normal = np.expand_dims(normal, 0)
+            normal = torch.from_numpy(normal).float()
             # valid = 1-depth
             # valid[valid>1] = 1
-            valid = (depth > 0.0001).astype(float)
+            # valid = (depth > 0.0001).astype(float)
             # valid = depth.astype(float)
-            depth = depth[np.newaxis, :, :]
-            depth = np.expand_dims(depth, 0)
-            valid = np.expand_dims(valid, 0)
-            depth = torch.from_numpy(depth).float()
-            valid = torch.from_numpy(valid).float()
+            # depth = depth[np.newaxis, :, :]
+            # depth = np.expand_dims(depth, 0)
+            # valid = np.expand_dims(valid, 0)
+            # depth = torch.from_numpy(depth).float()
+            # valid = torch.from_numpy(valid).float()
 
             if torch.cuda.is_available():
                 model_F.cuda()
@@ -218,26 +240,46 @@ def test(args):
                     model_map.cuda()
                     model_map.eval()
                 images = Variable(img.contiguous().cuda())
-                depth = Variable(depth.contiguous().cuda())
-                valid = Variable(valid.contiguous().cuda())
+                # depth = Variable(depth.contiguous().cuda())
+                normal = Variable(normal.contiguous().cuda())
+
+                # valid = Variable(valid.contiguous().cuda())
             else:
                 images = Variable(img)
-                depth = Variable(depth)
-                valid = Variable(valid)
-
+                # depth = Variable(depth)
+                normal = Variable(normal)
+                # valid = Variable(valid)
+            
             with torch.no_grad():
                 if args.arch_map == 'map_conv':
                     outputs_valid = model_map(torch.cat((depth, valid[:, np.newaxis, :, :]), dim=1))
                     outputs, outputs1, outputs2, outputs3, output_d = model_F(images, depth,
                                                                               outputs_valid.squeeze(1))
                 else:
-                    outputs, outputs1, outputs2, outputs3, output_d = model_F(images, depth, outputs_valid)
+                    # outputs, outputs1, outputs2, outputs3, output_d = model_F(images, depth, outputs_valid)
+                    outputs_valid = torch.ones(images.shape)
+                    outputs, outputs1, outputs2, outputs3, output_d = model_F(images, normal, outputs_valid)
 
-            outputs_norm = norm_imsave(outputs)
+            outputs_norm = norm_imsave(outputs,False)
+
             outputs_norm = np.squeeze(outputs_norm.data.cpu().numpy(), axis=0)
+            # print(outputs_norm.shape)
             # outputs_norm = misc.imresize(outputs_norm, orig_size)
-            outputs_norm = change_channel(outputs_norm)
+            # outputs_norm = change_channel(outputs_norm)
+            # outputs_norm = outputs_norm.transpose(1, 2, 0)
+            # print(outputs_norm)
+            if os.path.exists(gt_normal_x_f):
+                mean, median, small, mid, large = eval_normal_pixel_me(gt_normal,outputs_norm)
+                print("Evaluation  Mean Loss: mean: %.4f, median: %.4f, 11.25: %.4f, 22.5: %.4f, 30: %.4f." % (mean, median, small, mid, large)) 
+
+            # labels = np.ones(outputs_norm.shape)*[0,0,1]
+            # mean, median, small, mid, large = eval_normal_pixel_me(labels,outputs_norm)
+            # print("Evaluation  Mean Loss: mean: %.4f, median: %.4f, 11.25: %.4f, 22.5: %.4f, 30: %.4f." % (mean, median, small, mid, large)) 
+            outputs_norm = 0.5*(outputs_norm+1)
             misc.imsave(output_f, outputs_norm)
+
+            # misc.imsave(output_f, outputs_norm)
+
         print("Complete")
         # end of test on no dataset images
 
@@ -281,6 +323,8 @@ if __name__ == '__main__':
     parser.add_argument('--img_path', nargs='?', type=str, default='../Depth2Normal/Dataset/normal/',
                         help='Path of the input image')
     parser.add_argument('--depth_path', nargs='?', type=str, default='../Depth2Normal/Dataset/normal/',
+                        help='Path of the input image, mt_data_clean!!!!!!!!!')
+    parser.add_argument('--gt_path', nargs='?', type=str, default='../Depth2Normal/Dataset/normal/',
                         help='Path of the input image, mt_data_clean!!!!!!!!!')
     parser.add_argument('--ir_path', nargs='?', type=str, default='../Depth2Normal/Dataset/ir_mask/',
                         help='Path of the input image, mt_data_clean!!!!!!!!!')

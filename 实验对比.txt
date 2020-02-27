@@ -1,24 +1,28 @@
 
 RGBD_ms:
-mono:
-Evaluation Pixel-Level Mean Loss: mean 13.3371, median 7.6617, 11.25 0.6749, 22.5 0.8523, 30 0.8942
-Evaluation Image-Level Mean Loss: mean 13.3565, median 7.6666, 11.25 0.6747, 22.5 0.8520, 30 0.8939
+    mono:
+    Evaluation Pixel-Level Mean Loss: mean 13.3371, median 7.6617, 11.25 0.6749, 22.5 0.8523, 30 0.8942
+    Evaluation Image-Level Mean Loss: mean 13.3565, median 7.6666, 11.25 0.6747, 22.5 0.8520, 30 0.8939
 
-RGB:
-Evaluation Pixel-Level Mean Loss: mean 13.2649, median 7.6426, 11.25 0.6711, 22.5 0.8521, 30 0.8943
-Evaluation Image-Level Mean Loss: mean 13.2843, median 7.6476, 11.25 0.6709, 22.5 0.8518, 30 0.8940
-
-RGB:
-Evaluation Pixel-Level Mean Loss: mean 19.0373, median 10.8245, 11.25 0.5687, 22.5 0.7437, 30 0.8018
-evalnum is 500, Evaluation Image-Level Mean Loss: mean 19.3972, median 11.1040, 11.25 0.5621, 22.5 0.7374, 30 0.7967
-
-mono:
-Evaluation Pixel-Level Mean Loss: mean 19.0856, median 10.8287, 11.25 0.5674, 22.5 0.7426, 30 0.8008
-evalnum is 500, Evaluation Image-Level Mean Loss: mean 19.4363, median 11.0992, 11.25 0.5607, 22.5 0.7363, 30 0.7958
+    RGB:
+    Evaluation Pixel-Level Mean Loss: mean 13.2649, median 7.6426, 11.25 0.6711, 22.5 0.8521, 30 0.8943
+    Evaluation Image-Level Mean Loss: mean 13.2843, median 7.6476, 11.25 0.6709, 22.5 0.8518, 30 0.8940
 
 RGB model:
-RGB:
-evalnum is 500, Evaluation Mean Loss: mean 19.7615, median 11.7639, 11.25 0.5457, 22.5 0.7213, 30 0.7853
+    RGB:
+    evalnum is 500, Evaluation Mean Loss: mean 19.7615, median 11.7639, 11.25 0.5457, 22.5 0.7213, 30 0.7853
 
-Mono:
-evalnum is 500, Evaluation Mean Loss: mean 20.1976, median 12.1566, 11.25 0.5326, 22.5 0.7143, 30 0.7794
+    Mono:
+    evalnum is 500, Evaluation Mean Loss: mean 20.1976, median 12.1566, 11.25 0.5326, 22.5 0.7143, 30 0.7794
+
+    换了法线表达，epoch不是最新的：
+    evalnum is 500, Evaluation Mean Loss: mean 22.3060, median 15.5266, 11.25 0.4394, 22.5 0.6567, 30 0.7450
+
+将深度替换成Noisy Normal:
+    Mono:
+    Evaluation Pixel-Level Mean Loss: mean 4.5291, median 3.0044, 11.25 0.9293, 22.5 0.9816, 30 0.9892
+    evalnum is 500, Evaluation Image-Level Mean Loss: mean 4.6818, median 3.1128, 11.25 0.9246, 22.5 0.9802, 30 0.9883
+
+Mask Image 输入，仅存Noisy Normal:
+    Evaluation Pixel-Level Mean Loss: mean 4.4724, median 2.9972, 11.25 0.9321, 22.5 0.9832, 30 0.9901
+    evalnum is 500, Evaluation Image-Level Mean Loss: mean 4.6073, median 3.1042, 11.25 0.9273, 22.5 0.9820, 30 0.9895

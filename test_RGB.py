@@ -21,8 +21,11 @@ from tqdm import tqdm
 from models import get_model, get_lossfun
 from loader import get_data_path, get_loader
 from pre_trained import get_premodel
+
+# TODO: 修改 change_channel
 from utils import norm_imsave, get_dataList, change_channel
-from models.eval import eval_normal
+from models.eval import eval_normal,eval_normal_pixel_me
+from loader.loader_utils import png_reader_32bit, png_reader_uint8
 
 import tensorwatch as tw
 
@@ -33,7 +36,7 @@ import scipy.io as sio
 def test(args):
     # Setup Model
     model_name = args.arch_RGB
-    model = get_model(model_name, False)  # vgg_16
+    model = get_model(model_name,False)  # vgg_16
 
     testset_out_default_path = "./result/"
     testset_out_path = args.result_path
@@ -55,8 +58,8 @@ def test(args):
             testset_out_path = "{}{}_{}".format(testset_out_default_path, args.model_full_name, test_info)
         model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
         model.load_state_dict(checkpoint['model_RGB_state'])
-        print(model.state_dict)
-        assert False
+        # print(model.state_dict)
+        # assert False
     else:
         # Pretrain model 加载预训练模型
         print("Load pretrained model: {}".format(args.state_name))
@@ -68,9 +71,10 @@ def test(args):
 
     # Setup image
     # Create output folder if needed
-    # if os.path.isdir(testset_out_path) == False:
-    #     os.mkdir(testset_out_path)
+
     if args.imgset:
+        if os.path.isdir(testset_out_path) == False:
+            os.mkdir(testset_out_path)
         print("Test on dataset: {}".format(args.test_dataset))
 
         # Set up dataloader
@@ -107,12 +111,15 @@ def test(args):
                 images_val = images_val + 0.5
                 images_val = images_val.transpose(1, 2, 0)
 
-                outputs_norm = change_channel(outputs_norm)
+                # outputs_norm = change_channel(outputs_norm)
                 # outputs_norm= temp_change_mlt_chanel(outputs_norm)
+                if np.min(outputs_norm )< 0:
+                    print('scale outputs normal to 0 1 !')
+                    outputs_norm = (outputs_norm + 1) / 2  # scale to 0 1
 
                 labels_val_norm = (labels_val_norm + 1) / 2  # scale to 0 1
                 # Change channel to have a better appearance for paper.
-                labels_val_norm = change_channel(labels_val_norm)
+                # labels_val_norm = change_channel(labels_val_norm)
                 misc.imsave(pjoin(testset_out_path, "{}_out.png".format(i_val + 1)), outputs_norm)
                 misc.imsave(pjoin(testset_out_path, "{}_gt.png".format(i_val + 1)), labels_val_norm)
                 misc.imsave(pjoin(testset_out_path, "{}_in.jpg".format(i_val + 1)), images_val)
@@ -151,41 +158,72 @@ def test(args):
             # end of dataset test
     else:
         if args.img_datalist == "":
-            # For single image, without GT
             print("Read Input Image from : {}".format(args.img_path))
-            img = misc.imread(args.img_path)
-            if args.img_rot:
-                img = np.transpose(img, (1, 0, 2))
-                img = np.flipud(img)
-            orig_size = img.shape[:-1]
-            img = misc.imresize(img, (args.img_rows, args.img_cols))  # Need resize the image to model inputsize
+            for i in os.listdir(args.img_path):
+                if not i.endswith('.png'):
+                    continue
+                print("Reading image : {}".format(i))
 
-            img = img.astype(np.float)
-            if args.img_norm:
-                img = (img - 128) / 255
-            # NHWC -> NCHW
-            img = img.transpose(2, 0, 1)
-            img = np.expand_dims(img, 0)
-            img = torch.from_numpy(img).float()
+                # For single image, without GT
+                input_f = args.img_path + i
+                img = misc.imread(input_f)
+                img = np.stack([img,img,img],axis=2)
+                gt_normal_x_f = args.gt_path + i.replace('.png', '_nx.png')
+                if os.path.exists(gt_normal_x_f):
+                    gt_normal_y_f = args.gt_path + i.replace('.png', '_ny.png')
+                    gt_normal_z_f = args.gt_path + i.replace('.png', '_nz.png')
+                    gt_normal_x = png_reader_32bit(gt_normal_x_f, (args.img_rows, args.img_cols))
+                    gt_normal_y = png_reader_32bit(gt_normal_y_f, (args.img_rows, args.img_cols))
+                    gt_normal_z = png_reader_32bit(gt_normal_z_f, (args.img_rows, args.img_cols))
 
-            if torch.cuda.is_available():
-                model.cuda(0)
-                images = Variable(img.contiguous().cuda(0))
-            else:
-                images = Variable(img)
+                    gt_normal_x = gt_normal_x.astype(float)/32768 - 1
+                    gt_normal_y = gt_normal_y.astype(float)/32768 - 1
+                    gt_normal_z = gt_normal_z.astype(float)/32768 - 1
+                    gt_normal = np.concatenate((gt_normal_x[:,:,np.newaxis], gt_normal_y[:,:,np.newaxis], gt_normal_z[:,:,np.newaxis]), axis = 2)
+                    gt_normal = torch.from_numpy(gt_normal).float()
 
-            with torch.no_grad():
-                outputs = model(images)
+                if args.img_rot:
+                    img = np.transpose(img, (1, 0, 2))
+                    img = np.flipud(img)
+                orig_size = img.shape[:-1]
+                img = misc.imresize(img, (args.img_rows, args.img_cols))  # Need resize the image to model inputsize
 
-            outputs_norm = norm_imsave(outputs)
-            outputs_norm = np.squeeze(outputs_norm.data.cpu().numpy(), axis=0)
+                img = img.astype(np.float)
+                if args.img_norm:
+                    img = (img - 128) / 255
+                # NHWC -> NCHW
+                img = img.transpose(2, 0, 1)
+                img = np.expand_dims(img, 0)
+                img = torch.from_numpy(img).float()
 
-            # Change channels
-            outputs_norm = change_channel(outputs_norm)
+                if torch.cuda.is_available():
+                    model.cuda(0)
+                    images = Variable(img.contiguous().cuda(0))
+                else:
+                    images = Variable(img)
 
-            misc.imsave(args.out_path, outputs_norm)
-            print("Complete")
-            # end of test on single image
+                with torch.no_grad():
+                    outputs = model(images)
+
+                
+                outputs_norm = norm_imsave(outputs,False)
+                outputs_norm = np.squeeze(outputs_norm.data.cpu().numpy(), axis=0)
+
+                # Change channels
+                # 为了论文显示效果，并不妨碍
+                # outputs_norm = change_channel(outputs_norm)
+                # labels = np.ones(outputs_norm.shape)*[0,0,1]
+                # mean, median, small, mid, large = eval_normal_pixel_me(labels,outputs_norm)
+                # print("Evaluation  Mean Loss: mean: %.4f, median: %.4f, 11.25: %.4f, 22.5: %.4f, 30: %.4f." % (mean, median, small, mid, large)) 
+                if os.path.exists(gt_normal_x_f):
+                    mean, median, small, mid, large = eval_normal_pixel_me(gt_normal,outputs_norm)
+                    print("Evaluation  Mean Loss: mean: %.4f, median: %.4f, 11.25: %.4f, 22.5: %.4f, 30: %.4f." % (mean, median, small, mid, large)) 
+
+                outputs_norm = 0.5*(outputs_norm+1)
+                output_f = args.out_path + i.replace('.png', '_rgb.png')
+                misc.imsave(output_f, outputs_norm)
+                print("Complete")
+                # end of test on single image
         else:
             # For image list without GT
             data_list = get_dataList(args.img_datalist)
@@ -315,6 +353,8 @@ if __name__ == '__main__':
                         help='False by default')
     parser.add_argument('--no-mono_img', dest='mono_img', action='store_false',
                         help='False by default')
+    parser.add_argument('--gt_path', nargs='?', type=str, default='../Depth2Normal/Dataset/normal/',
+                        help='Path of the input image, mt_data_clean!!!!!!!!!')
     parser.set_defaults(mono_img=False)
 
     args = parser.parse_args()

@@ -15,6 +15,16 @@ def change_channel(outputs_norm, scale=1):
     new_norm = np.concatenate((np.expand_dims(nx,2), np.expand_dims(nz,2), np.expand_dims(ny,2)),axis=2)
     return new_norm
 
+def change_channel_batch(outputs_norm, scale=1):
+    bs,row,col,channel=outputs_norm.shape
+    nx = np.ones((bs,row,col)) - outputs_norm[:,:, :, 0]
+    ny = np.ones((bs,row,col)) - outputs_norm[:,:, :, 1]
+    print('change channels')
+    nz = outputs_norm[:,:, :, 2]
+    # 原来是 new_norm = [nx, nz, ny] 但是这个是一个列表，没办法保存
+    new_norm = np.concatenate((np.expand_dims(nx,3), np.expand_dims(nz,3), np.expand_dims(ny,3)),axis=3)
+    return new_norm
+
 def get_dataList(filename):
     f = open(filename, 'r')
     data_list = list()
@@ -77,7 +87,7 @@ def norm_sm(outputs):
 
     return outputs_n
 
-def norm_imsave(outputs):
+def norm_imsave(outputs,is_norm=True):
     # outputs_s = np.squeeze(outputs.data.cpu().numpy(), axis=0)
     # outputs_s = outputs_s.transpose(1, 2, 0)
     # outputs_s = outputs_s.reshape(-1,3)
@@ -88,7 +98,8 @@ def norm_imsave(outputs):
     bz, ch, img_rows, img_cols = outputs.size()# bz should be one for imsave
     outputs = outputs.permute(0,2,3,1).contiguous().view(-1,ch)
     outputs_n = F.normalize(outputs,p=2)
-    outputs_n = 0.5*(outputs_n+1)                
+    if is_norm:
+        outputs_n = 0.5*(outputs_n+1)                
     outputs_n = outputs_n.view(-1, img_rows, img_cols, ch)
     # outputs_n = outputs_n.permute(0,3,1,2)
 

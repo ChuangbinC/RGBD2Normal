@@ -41,8 +41,8 @@ def train(args):
     # data loader setting, train and evaluation
     data_loader = get_loader(args.dataset)
     data_path = get_data_path(args.dataset)
-    t_loader = data_loader(data_path, split='train', img_size=(args.img_rows, args.img_cols), img_norm=args.img_norm)
-    v_loader = data_loader(data_path, split='test', img_size=(args.img_rows, args.img_cols), img_norm=args.img_norm)
+    t_loader = data_loader(data_path, split='train', img_size=(args.img_rows, args.img_cols), img_norm=args.img_norm,mono=args.mono_img,add_normal=True)
+    v_loader = data_loader(data_path, split='test', img_size=(args.img_rows, args.img_cols), img_norm=args.img_norm,mono=args.mono_img,add_normal=True)
 
     # trainloader = data.DataLoader(t_loader, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     # evalloader = data.DataLoader(v_loader, batch_size=args.batch_size, num_workers=args.num_workers)
@@ -54,7 +54,7 @@ def train(args):
     # Setup Model and load pretrained model
     model_name = args.arch_RGB
     # print(model_name)
-    model = get_model(model_name, True)  # vgg_16
+    model = get_model(model_name, False)  # vgg_16
     if args.pretrain:  # True by default
         if args.input == 'rgb':  # only for rgb we have pretrain option
             # 加载预训练模型的参数
@@ -281,6 +281,12 @@ if __name__ == '__main__':
     parser.add_argument('--no-img_norm', dest='img_norm', action='store_false',
                         help='Disable input image scales normalization [0, 1] | True by default')
     parser.set_defaults(img_norm=True)
+
+    parser.add_argument('--mono_img', dest='mono_img', action='store_true',
+                        help='Enable input image scales normalization [0, 1] | True by default')
+    parser.add_argument('--no-mono_img', dest='mono_img', action='store_false',
+                        help='Disable input image scales normalization [0, 1] | True by default')
+    parser.set_defaults(mono_img=False)
 
     parser.add_argument('--n_epoch', nargs='?', type=int, default=10,
                         help='# of the epochs, max 20')

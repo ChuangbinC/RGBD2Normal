@@ -31,30 +31,33 @@ from utils import norm_tf, get_fconv_premodel
 
 
 def train(args):
-    writer = SummaryWriter(comment=args.writer)
+    writer = SummaryWriter(log_dir=args.log_dir,comment=args.writer)
 
     # data loader setting, train and evaluatfconvion
     data_loader = get_loader(args.dataset)
     data_path = get_data_path(args.dataset)
-    t_loader = data_loader(data_path, split='train', img_size=(args.img_rows, args.img_cols), img_norm=args.img_norm)
-    v_loader = data_loader(data_path, split='test', img_size=(args.img_rows, args.img_cols), img_norm=args.img_norm)
+    t_loader = data_loader(data_path, split='train', img_size=(args.img_rows, args.img_cols), img_norm=args.img_norm,mono=args.mono_img,add_normal=True)
+    v_loader = data_loader(data_path, split='test', img_size=(args.img_rows, args.img_cols), img_norm=args.img_norm,mono=args.mono_img,add_normal=True)
 
     trainloader = data.DataLoader(t_loader, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     evalloader = data.DataLoader(v_loader, batch_size=args.batch_size, num_workers=args.num_workers)
     print("Finish Loader Setup")
 
     # Setup Model and load pretrained model
+    # 融合模块
     model_name_F = args.arch_F
     model_F = get_model(model_name_F, True)  # concat and output
     model_F = torch.nn.DataParallel(model_F, device_ids=range(torch.cuda.device_count()))
-
+     
     if args.resume:  # use previously trained model
         # Two types of resume training
         checkpoint = torch.load(args.resume_model_path)
-        if checkpoint.has_key('model_RGB_state'):
+        # if checkpoint.has_key('model_RGB_state'):
+        if 'model_RGB_state' in checkpoint:
             # Resume with a RGB model.
             # Load the RGB model and change it as encoder in the fusion network
             # Only the first three conv block will be used.
+            # 复用 RGB 网络模型的前三层作为 RGB和depth的融合层
             state = get_fconv_premodel(model_F, checkpoint['model_RGB_state'])
         else:
             # Resume a RGBD model
@@ -69,7 +72,7 @@ def train(args):
         model_name_map = args.arch_map
         model_map = get_model(model_name_map, True)  # concat and output
         model_map = torch.nn.DataParallel(model_map, device_ids=range(torch.cuda.device_count()))
-        if args.resume and checkpoint.has_key("model_map_state"):
+        if args.resume and 'model_map_state' in checkpoint:
             model_map.load_state_dict(checkpoint["model_map_state"])
         model_map.cuda()
         print("Finish model_map setup")
@@ -79,7 +82,7 @@ def train(args):
         optimizer_F = torch.optim.RMSprop(model_F.parameters(), lr=0.1 * args.l_rate)
         scheduler_F = torch.optim.lr_scheduler.MultiStepLR(optimizer_F, milestones=[2, 4, 6, 9, 12], gamma=0.5)
         if args.arch_map == 'map_conv':
-            optimizer_map = torch.optim.RMSprop(model_map.parameters(), lr=0.1 * args.l_rate)
+            # optimizer_map = torch.optim.RMSprop(model_map.parameters(), lr=0.1 * args.l_rate)
             # scheduler_map = torch.optim.lr_scheduler.MultiStepLR(optimizer_map, milestones=[1, 3, 5, 7, 9, 11, 13], gamma=0.5)#second trial
             scheduler_map = torch.optim.lr_scheduler.MultiStepLR(optimizer_map, milestones=[2, 4, 6, 9, 12], gamma=0.5)
     else:
@@ -99,7 +102,7 @@ def train(args):
     # forward and backward
     for epoch in range(args.n_epoch):
 
-        scheduler_F.step()
+        
         model_F.train()
         if args.arch_map == 'map_conv':
             scheduler_map.step()
@@ -152,9 +155,11 @@ def train(args):
                 writer.add_scalar('loss/trainloss', loss.data.item(), n_iter_t)
                 writer.add_images('Image', images + 0.5, n_iter_t)
                 writer.add_images('Label', 0.5 * (labels.permute(0, 3, 1, 2) + 1), n_iter_t)
-                writer.add_images('Depth',
-                                  np.repeat((depthes - torch.min(depthes)) / (torch.max(depthes) - torch.min(depthes)),
-                                            3, axis=1), n_iter_t)
+                writer.add_images('Noisy Normal', 0.5 * (depthes + 1), n_iter_t)
+
+                # writer.add_images('Depth',
+                #                   np.repeat((depthes - torch.min(depthes)) / (torch.max(depthes) - torch.min(depthes)),
+                #                             3, axis=1), n_iter_t)
                 # writer.add_image('Mesh_Depth', np.repeat((meshdepthes-torch.min(depthes))/(torch.max(depthes)-torch.min(depthes)), 3, axis = 1), n_iter_t)
                 outputs_n = norm_tf(outputs)
                 if (args.hybrid_loss):
@@ -172,7 +177,7 @@ def train(args):
                     outputs_valid_1 = (outputs_valid - torch.min(outputs_valid)) / (
                             torch.max(outputs_valid) - torch.min(outputs_valid))
                     writer.add_images('Output_Mask', outputs_valid_1.repeat([1, 3, 1, 1]), n_iter_t)
-
+        scheduler_F.step()
         model_F.eval()
         if args.arch_map == 'map_conv':
             model_map.eval()
@@ -197,7 +202,9 @@ def train(args):
 
                 # outputs, outputs1, outputs2, outputs3,output_d = model_F(images_val, depthes_val, valids_val)
                 loss, df = get_lossfun(args.loss, outputs, labels_val, masks_val, False)  # valid_val not used infact
-                if ((np.isnan(loss)) | (np.isinf(loss))):
+
+
+                if ((np.isnan(loss.cpu())) | (np.isinf(loss.cpu()))):
                     sum_loss += 0
                 else:
                     sum_loss += loss
@@ -208,9 +215,11 @@ def train(args):
                     writer.add_scalar('loss/evalloss', loss, n_iter_v)
                     writer.add_images('Eval Image', images_val + 0.5, n_iter_t)
                     writer.add_images('Eval Label', 0.5 * (labels_val.permute(0, 3, 1, 2) + 1), n_iter_t)
-                    writer.add_images('Eval Depth', np.repeat(
-                        (depthes_val - torch.min(depthes_val)) / (torch.max(depthes_val) - torch.min(depthes_val)), 3,
-                        axis=1), n_iter_t)
+                    writer.add_images('Eval Noisy Normal', 0.5 * (depthes_val+ 1), n_iter_t)
+
+                    # writer.add_images('Eval Depth', np.repeat(
+                    #     (depthes_val - torch.min(depthes_val)) / (torch.max(depthes_val) - torch.min(depthes_val)), 3,
+                    #     axis=1), n_iter_t)
                     # writer.add_image('Eval Mesh Depth', np.repeat((meshdepthes_val-torch.min(depthes_val))/(torch.max(meshdepthes_val)-torch.min(depthes_val)), 3, axis = 1), n_iter_t)
                     outputs_n = norm_tf(outputs)
                     output_nd = norm_tf(output_d)
@@ -289,6 +298,12 @@ if __name__ == '__main__':
                         help='Disable input image scales normalization [0, 1] | True by default')
     parser.set_defaults(img_norm=True)
 
+    parser.add_argument('--mono_img', dest='mono_img', action='store_true',
+                        help='Enable input image scales normalization [0, 1] | True by default')
+    parser.add_argument('--no-mono_img', dest='mono_img', action='store_false',
+                        help='Disable input image scales normalization [0, 1] | True by default')
+    parser.set_defaults(mono_img=False)
+
     parser.add_argument('--n_epoch', nargs='?', type=int, default=10,
                         help='# of the epochs')
     parser.add_argument('--batch_size', nargs='?', type=int, default=1,
@@ -322,14 +337,16 @@ if __name__ == '__main__':
 
     parser.add_argument('--loss', nargs='?', type=str, default='l1',
                         help='Loss type: cosine, sine, l1')
+
     parser.add_argument('--hybrid_loss', dest='hybrid_loss', action='store_true',
                         help='Whether use hybrid loss| False by default')
     parser.add_argument('--no_hybrid_loss', dest='hybrid_loss', action='store_false',
                         help='Whether use hybrid loss| False by default')
 
     parser.set_defaults(hybrid_loss=False)
-
-    parser.add_argument('--writer', nargs='?', type=str, default='fms',
+    parser.add_argument('--log_dir', nargs='?', type=str, default='RGBD_MS',
+                        help='The name of log dor in experiment')
+    parser.add_argument('--writer', nargs='?', type=str, default='exp1',
                         help='writer comment: fms')
     parser.add_argument('--num_workers', nargs='?', type=int, default=4, help='Number of workers for data loading')
     args = parser.parse_args()

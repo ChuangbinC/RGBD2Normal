@@ -92,6 +92,48 @@ def eval_normal_pixel(input, label, mask):
 
     return outputs_n, val_num, mean, median, small, mid, large
 
+
+def eval_normal_pixel_me(input, label):
+    # input: h*w*ch
+    # label: h*w*ch
+    
+    if not torch.is_tensor(input):
+        input = torch.from_numpy(input)
+    if not torch.is_tensor(label):
+        label = torch.from_numpy(label)
+    if input.ndim == 4:
+        bz, h, w, ch = input.size()
+    else:
+        h, w, ch = input.size()
+    # ch =3
+    # normalization
+    input = input.contiguous().view(-1,ch)
+    input_v = F.normalize(input,p=2)    
+    label = label.contiguous().view(-1,ch)
+    label_v = F.normalize(label,p=2)
+     
+    loss = F.cosine_similarity(input_v, label_v)#compute inner product     
+    loss[torch.ge(loss,1)] = 1
+    loss[torch.le(loss,-1)] = -1  
+    loss_angle = (180/np.pi)*torch.acos(loss)
+
+    val_num = loss_angle.size(0) 
+
+    if val_num>0:
+        mean = torch.mean(loss_angle).data.item()
+        median = torch.median(loss_angle).data.item()    
+        small = (torch.sum(torch.lt(loss_angle, 11.25)).to(torch.float)/val_num).data.item()
+        mid = (torch.sum(torch.lt(loss_angle, 22.5)).to(torch.float)/val_num).data.item()
+        large = (torch.sum(torch.lt(loss_angle, 30)).to(torch.float)/val_num).data.item()
+    else:
+        mean=0
+        median=0
+        small=0
+        mid=0
+        large=0
+
+    return mean, median, small, mid, large
+
 def eval_normal_detail(input, label, mask):
     # bs = 1 for testing
     # input: bs*ch*h*w

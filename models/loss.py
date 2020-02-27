@@ -36,12 +36,7 @@ def cross_cosine(input, label, mask, train=True):
         df = df.view(-1, h, w, ch)
         df = df.permute(0,3,1,2).contiguous()
     else:  # use mask from depth valid
-        # mask = mask.view(-1,1).expand_as(input_v)
-        # input_v[torch.eq(mask,0)] = 0
-        # label_v[torch.eq(mask,0)] = 0
-        # loss = F.cosine_embedding_loss(input_v, label_v, target, margin=1, size_average=False)
-        # loss = loss/sum(mask_t)
-        # loss = loss.data.item()
+
         input_v[torch.isnan(input_v)] = 0
         loss = F.cosine_similarity(input_v, label_v)#compute inner product 
         loss[torch.ge(loss,1)] = 1

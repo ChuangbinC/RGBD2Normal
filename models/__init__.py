@@ -6,6 +6,7 @@ from models.unet_3_depth_in import *
 from models.fconv_fusion import *
 from models.fconv_fusion_in import *
 from models.fconv_ms import *
+from models.fconv_ms_mask import *
 from models.loss import *
 from models.normal_estimation_ms import *
 from models.unet_3_mask_depth import *
@@ -36,7 +37,9 @@ def get_model(name, track_running_static):
     elif name == 'fconv_in':
         model = model(input_channel1=3, input_channel2=3, output_channel=3, track_running_static = track_running_static)
     elif name == 'fconv_ms':
-        model = model(input_channel1=3, input_channel2=1, output_channel=3, track_running_static = track_running_static)
+        model = model(input_channel1=3, input_channel2=3, output_channel=3, track_running_static = track_running_static)
+    elif name == 'fconv_ms_mask':
+        model = model(input_channel1=3, input_channel2=3, output_channel=3, track_running_static = track_running_static)
     elif name == 'ms':
         model = model(input_channel=3, output_channel=3, track_running_static = track_running_static)
     elif name == 'vgg_8':
@@ -68,6 +71,7 @@ def _get_model_instance(name):
             'unet_3_grad': unet_3_grad,
             'unet_3_grad_depth': unet_3_grad,
             'map_conv': map_conv,
+            'fconv_ms_mask':fconv_ms_mask,
         }[name]
     except:
         print('Model {} not available'.format(name))
@@ -78,11 +82,11 @@ def get_lossfun(name, input, label, mask, train=True):
     #resize label, mask to input size
     if (input.size(2) != label.size(1)):
         if name == 'l1_sm':
-            step = mask.size(1)/input.size(2)
+            step = mask.size(1)//input.size(2)
             mask = mask[:, 0::step, :]
             mask = mask[:, :, 0::step]
         else:
-            step = label.size(1)/input.size(2)
+            step = label.size(1)//input.size(2)
             label = label[:, 0::step, :, :]
             label = label[:, :, 0::step, :]
             mask = mask[:, 0::step, :]
